@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI颜值评分系统 - 十分制</title>
+    <!-- 引入人脸检测库 -->
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background: #f0f2f5;
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            color: #2c3e50;
+            font-weight: 600;
+        }
+
+        .tip {
+            text-align: center;
+            color: #64748b;
+            font-size: 14px;
+            margin-bottom: 24px;
+        }
+
+        .main-card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            padding: 30px;
+            margin-bottom: 20px;
+        }
+
+        .content-wrapper {
+            display: flex;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        /* 左侧图片上传区 */
+        .upload-section {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .upload-box {
+            width: 100%;
+            height: 360px;
+            border: 2px dashed #cbd5e1;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8fafc;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .upload-box:hover {
+            border-color: #3b82f6;
+            background: #eff6ff;
+        }
+
+        .upload-box.loading {
+            pointer-events: none;
+            opacity: 0.7;
+        }
+
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            color: #94a3b8;
+        }
+
+        .upload-text {
+            color: #64748b;
+            font-size: 14px;
+        }
+
+        .loading-text {
+            color: #3b82f6;
+            font-size: 14px;
+            margin-top: 10px;
+        }
+
+        #previewImg {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            display: none;
+        }
+
+        #fileInput {
+            display: none;
+        }
+
+        #hiddenCanvas {
+            display: none;
+        }
+
+        /* 右侧评分区 */
+        .score-section {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .dimension-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .dimension-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .dimension-score {
+            color: #3b82f6;
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e2e8f0;
+            outline: none;
+            -webkit-appearance: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(59, 130, 246, 0.4);
+            transition: transform 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        /* 结果展示区 */
+        .result-section {
+            display: flex;
+            gap: 30px;
+            align-items: center;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .total-score-box {
+            flex: 1;
+            text-align: center;
+        }
+
+        .total-label {
+            font-size: 14px;
+            color: #64748b;
+            margin-bottom: 8px;
+        }
+
+        .total-score {
+            font-size: 64px;
+            font-weight: 700;
+            color: #3b82f6;
+            line-height: 1;
+            margin-bottom: 12px;
+        }
+
+        .comment {
+            font-size: 15px;
+            color: #475569;
+            line-height: 1.6;
+            padding: 0 20px;
+        }
+
+        /* 雷达图 */
+        .radar-box {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+        }
+
+        #radarCanvas {
+            width: 280px;
+            height: 280px;
+        }
+
+        /* 底部声明 */
+        .footer-note {
+            text-align: center;
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 10px;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 768px) {
+            .content-wrapper, .result-section {
+                flex-direction: column;
+            }
+
+            .upload-box {
+                height: 280px;
+            }
+
+            .total-score {
+                font-size: 48px;
+            }
+
+            #radarCanvas {
+                width: 240px;
+                height: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>AI颜值评分系统（十分制）</h1>
+        <div class="tip">上传正面清晰照片，AI自动基于大众审美基准评分 | 支持手动微调</div>
+        
+        <div class="main-card">
+            <div class="content-wrapper">
+                <!-- 图片上传区 -->
+                <div class="upload-section">
+                    <div class="upload-box" id="uploadBox">
+                        <div class="upload-icon">📷</div>
+                        <div class="upload-text">点击或拖拽上传正面照片</div>
+                        <div class="loading-text" id="loadingText" style="display:none;">正在分析人脸...</div>
+                        <img id="previewImg" alt="预览图">
+                    </div>
+                    <input type="file" id="fileInput" accept="image/*">
+                    <canvas id="hiddenCanvas"></canvas>
+                </div>
+
+                <!-- 评分滑块区 -->
+                <div class="score-section">
+                    <div class="dimension-item">
+                        <div class="dimension-label">
+                            <span>面部对称性（20%）</span>
+                            <span class="dimension-score" id="symmetryVal">5.0</span>
+                        </div>
+                        <input type="range" id="symmetry" min="0" max="10" step="0.1" value="5">
+                    </div>
+
+                    <div class="dimension-item">
+                        <div class="dimension-label">
+                            <span>眉眼整体（20%）</span>
+                            <span class="dimension-score" id="eyeBrowVal">5.0</span>
+                        </div>
+                        <input type="range" id="eyeBrow" min="0" max="10" step="0.1" value="5">
+                    </div>
+
+                    <div class="dimension-item">
+                        <div class="dimension-label">
+                            <span>五官比例·三庭五眼（20%）</span>
+                            <span class="dimension-score" id="proportionVal">5.0</span>
+                        </div>
+                        <input type="range" id="proportion" min="0" max="10" step="0.1" value="5">
+                    </div>
+
+                    <div class="dimension-item">
+                        <div class="dimension-label">
+                            <span>皮肤状态（15%）</span>
+                            <span class="dimension-score" id="skinVal">5.0</span>
+                        </div>
+                        <input type="range" id="skin" min="0" max="10" step="0.1" value="5">
+                    </div>
+
+                    <div class="dimension-item">
+                        <div class="dimension-label">
+                            <span>颅顶与脸型（10%）</span>
+                            <span class="dimension-score" id="hairVal">5.0</span>
+                        </div>
+                        <input type="range" id="hair" min="0" max="10" step="0.1" value="5">
+                    </div>
+
+                    <div class="dimension-item">
+                        <div class="dimension-label">
+                            <span>气质与氛围感（15%）</span>
+                            <span class="dimension-score" id="vibeVal">5.0</span>
+                        </div>
+                        <input type="range" id="vibe" min="0" max="10" step="0.1" value="5">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 结果区 -->
+            <div class="result-section">
+                <div class="total-score-box">
+                    <div class="total-label">综合颜值评分</div>
+                    <div class="total-score" id="totalScore">5.0</div>
+                    <div class="comment" id="comment">普通路人！五官基础中规中矩，没有突出亮点，可通过造型修饰扬长避短。</div>
+                </div>
+                <div class="radar-box">
+                    <canvas id="radarCanvas" width="280" height="280"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-note">结果仅供娱乐参考，审美多元，不必过度较真 | 首次使用需加载AI模型，请稍候</div>
+    </div>
+
+    <script>
+        // ========== 配置项 ==========
+        const weights = {
+            symmetry: 0.20,   // 面部对称性
+            eyeBrow: 0.20,    // 眉眼整体
+            proportion: 0.20, // 五官比例
+            skin: 0.15,       // 皮肤状态
+            hair: 0.10,       // 颅顶与脸型
+            vibe: 0.15        // 气质氛围感
+        };
+
+        const dimensionNames = ['面部对称', '眉眼', '比例', '皮肤', '脸型', '气质'];
+        const sliderIds = ['symmetry', 'eyeBrow', 'proportion', 'skin', 'hair', 'vibe'];
+
+        // ========== DOM元素 ==========
+        const uploadBox = document.getElementById('uploadBox');
+        const fileInput = document.getElementById('fileInput');
+        const previewImg = document.getElementById('previewImg');
+        const loadingText = document.getElementById('loadingText');
+        const totalScoreEl = document.getElementById('totalScore');
+        const commentEl = document.getElementById('comment');
+        const canvas = document.getElementById('radarCanvas');
+        const ctx = canvas.getContext('2d');
+        const hiddenCanvas = document.getElementById('hiddenCanvas');
+        const hiddenCtx = hiddenCanvas.getContext('2d');
+
+        let modelLoaded = false;
+
+        // ========== 预加载人脸模型 ==========
+        async function loadModels() {
+            const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+            try {
+                await Promise.all([
+                    faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+                ]);
+                modelLoaded = true;
+            } catch (e) {
+                alert('模型加载失败，请检查网络后刷新重试');
+                console.error(e);
+            }
+        }
+        loadModels();
+
+        // ========== 图片上传处理 ==========
+        uploadBox.addEventListener('click', () => fileInput.click());
+        
+        uploadBox.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadBox.classList.add('dragover');
+        });
+
+        uploadBox.addEventListener('dragleave', () => {
+            uploadBox.classList.remove('dragover');
+        });
+
+        uploadBox.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadBox.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) handleImage(file);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) handleImage(file);
+        });
+
+        function handleImage(file) {
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                previewImg.src = e.target.result;
+                previewImg.style.display = 'block';
+                uploadBox.querySelector('.upload-icon').style.display = 'none';
+                uploadBox.querySelector('.upload-text').style.display = 'none';
+                
+                // 等待图片加载完成
+                previewImg.onload = async () => {
+                    if (!modelLoaded) {
+                        alert('AI模型正在加载中，请稍候再试');
+                        return;
+                    }
+                    await analyzeFace();
+                };
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // ========== 核心：人脸分析与自动评分 ==========
+        async function analyzeFace() {
+            loadingText.style.display = 'block';
+            uploadBox.classList.add('loading');
+
+            try {
+                // 检测人脸+关键点
+                const detection = await faceapi
+                    .detectSingleFace(previewImg, new faceapi.SsdMobilenetv1Options({ minConfidence: 0.3 }))
+                    .withFaceLandmarks();
+
+                if (!detection) {
+                    alert('未检测到清晰人脸，请上传正面、光线充足的免冠照片');
+                    loadingText.style.display = 'none';
+                    uploadBox.classList.remove('loading');
+                    return;
+                }
+
+                const landmarks = detection.landmarks;
+                const points = landmarks.positions; // 68个关键点数组
+                const box = detection.detection.box;
+
+                // 计算各维度分数
+                const symmetryScore = calcSymmetryScore(points);
+                const eyeBrowScore = calcEyeBrowScore(points);
+                const proportionScore = calcProportionScore(points, box);
+                const skinScore = await calcSkinScore(points);
+                const faceShapeScore = calcFaceShapeScore(points, box);
+                const vibeScore = calcVibeScore(symmetryScore, eyeBrowScore, proportionScore);
+
+                // 更新滑块
+                setSliderValue('symmetry', symmetryScore);
+                setSliderValue('eyeBrow', eyeBrowScore);
+                setSliderValue('proportion', proportionScore);
+                setSliderValue('skin', skinScore);
+                setSliderValue('hair', faceShapeScore);
+                setSliderValue('vibe', vibeScore);
+
+                calculateTotal();
+
+            } catch (e) {
+                console.error('分析失败', e);
+                alert('分析出错，请更换图片重试');
+            }
+
+            loadingText.style.display = 'none';
+            uploadBox.classList.remove('loading');
+        }
+
+        // ========== 各维度评分算法 ==========
+
+        // 1. 面部对称性评分
+        function calcSymmetryScore(points) {
+            // 中轴线参考点：鼻梁、鼻尖、鼻底、人中、下巴中点
+            const axisPoints = [points[27], points[30], points[33], points[51], points[8]];
+            // 拟合中轴直线（简化为垂直中线x坐标均值）
+            const axisX = axisPoints.reduce((sum, p) => sum + p.x, 0) / axisPoints.length;
+
+            // 左右对称点对
+            const pairs = [
+                [points[39], points[42]],   // 内眼角
+                [points[36], points[45]],   // 外眼角
+                [points[48], points[54]],   // 嘴角
+                [points[2], points[14]],    // 颧骨
+                [points[6], points[10]],    // 下颌
+                [points[17], points[26]],   // 眉尾
+            ];
+
+            let totalDiff = 0;
+            const faceWidth = points[16].x - points[0].x;
+
+            pairs.forEach(([left, right]) => {
+                const leftDist = Math.abs(left.x - axisX);
+                const rightDist = Math.abs(right.x - axisX);
+                totalDiff += Math.abs(leftDist - rightDist);
+            });
+
+            const avgDiff = totalDiff / pairs.length;
+            const diffRatio = avgDiff / faceWidth; // 偏差率
+
+            // 偏差率0% → 10分；8% → 0分
+            let score = 10 - (diffRatio / 0.08) * 10;
+            return clamp(score, 0, 10);
+        }
+
+        // 2. 眉眼整体评分
+        function calcEyeBrowScore(points) {
+            // 单眼宽度
+            const eyeWidth = (points[39].x - points[36].x + points[45].x - points[42].x) / 2;
+            // 眼距
+            const eyeDistance = points[42].x - points[39].x;
+            // 眼距理想比例 1:1
+            const distanceRatio = eyeDistance / eyeWidth;
+            const distanceScore = 10 - Math.abs(distanceRatio - 1.0) * 8;
+
+            // 眼高（上下眼睑距离）
+            const rightEyeHeight = (points[38].y - points[40].y + points[37].y - points[41].y) / 2;
+            const leftEyeHeight = (points[44].y - points[46].y + points[43].y - points[47].y) / 2;
+            const eyeHeight = (rightEyeHeight + leftEyeHeight) / 2;
+            // 眼型比例 宽:高 ≈ 3:1
+            const eyeShapeRatio = eyeWidth / eyeHeight;
+            const shapeScore = 10 - Math.abs(eyeShapeRatio - 3.0) * 1.5;
+
+            // 眉眼间距（眉毛下缘到眼睛上缘）
+            const browEyeDist = (points[19].y - points[38].y + points[24].y - points[44].y) / 2;
+            const browRatio = browEyeDist / eyeHeight;
+            // 理想值0.6
+            const browScore = 10 - Math.abs(browRatio - 0.6) * 6;
+
+            // 加权平均
+            const score = distanceScore * 0.4 + shapeScore * 0.35 + browScore * 0.25;
+            return clamp(score, 0, 10);
+        }
+
+        // 3. 五官比例（三庭五眼）评分
+        function calcProportionScore(points, box) {
+            const faceWidth = points[14].x - points[2].x; // 颧骨宽度
+            const eyeWidth = (points[39].x - points[36].x + points[45].x - points[42].x) / 2;
+            
+            // 五眼比例：脸宽 / 单眼宽 ≈ 5
+            const fiveEyeRatio = faceWidth / eyeWidth;
+            const fiveEyeScore = 10 - Math.abs(fiveEyeRatio - 5.0) * 2;
+
+            // 中庭：眉中点→鼻底
+            const midBrowY = (points[19].y + points[24].y) / 2;
+            const noseBottomY = points[33].y;
+            const midFace = noseBottomY - midBrowY;
+
+            // 下庭：鼻底→下巴
+            const lowerFace = points[8].y - noseBottomY;
+
+            // 庭比例：中庭:下庭 ≈ 1:1
+            const courtRatio = midFace / lowerFace;
+            const courtScore = 10 - Math.abs(courtRatio - 1.0) * 6;
+
+            // 脸长宽比（理想1.4左右，鹅蛋脸）
+            const faceHeight = points[8].y - midBrowY;
+            const hwRatio = faceHeight / faceWidth;
+            const hwScore = 10 - Math.abs(hwRatio - 1.4) * 4;
+
+            const score = fiveEyeScore * 0.35 + courtScore * 0.35 + hwScore * 0.3;
+            return clamp(score, 0, 10);
+        }
+
+        // 4. 皮肤状态评分（肤色均匀度）
+        async function calcSkinScore(points) {
+            hiddenCanvas.width = previewImg.naturalWidth;
+            hiddenCanvas.height = previewImg.naturalHeight;
+            hiddenCtx.drawImage(previewImg, 0, 0);
+
+            // 取三个采样区域：额头、左脸颊、右脸颊
+            const sampleAreas = [
+                { x: points[27].x, y: points[27].y - 20, w: 30, h: 30 }, // 额头
+                { x: points[4].x + 10, y: points[4].y, w: 30, h: 30 },  // 右脸颊
+                { x: points[12].x - 10, y: points[12].y, w: 30, h: 30 } // 左脸颊
+            ];
+
+            let totalStd = 0;
+            let validAreas = 0;
+
+            sampleAreas.forEach(area => {
+                try {
+                    const imgData = hiddenCtx.getImageData(area.x, area.y, area.w, area.h);
+                    const data = imgData.data;
+                    const rValues = [], gValues = [], bValues = [];
+                    
+                    for (let i = 0; i < data.length; i += 4) {
+                        rValues.push(data[i]);
+                        gValues.push(data[i+1]);
+                        bValues.push(data[i+2]);
+                    }
+
+                    const rStd = calcStd(rValues);
+                    const gStd = calcStd(gValues);
+                    const bStd = calcStd(bValues);
+                    totalStd += (rStd + gStd + bStd) / 3;
+                    validAreas++;
+                } catch(e) {}
+            });
+
+            if (validAreas === 0) return 5.0;
+
+            const avgStd = totalStd / validAreas;
+            // 标准差<10 → 10分；>50 → 0分
+            let score = 10 - ((avgStd - 10) / 40) * 10;
+            return clamp(score, 0, 10);
+        }
+
+        // 5. 颅顶与脸型评分
+        function calcFaceShapeScore(points, box) {
+            // 下颌角角度（点6、8、10）
+            const jawAngle = calcAngle(points[6], points[8], points[10]);
+            // 理想下颌角约120度
+            let jawScore = 10 - Math.abs(jawAngle - 120) / 10;
+
+            // 脸型流畅度：下颌轮廓平滑度
+            let smoothness = 0;
+            for (let i = 3; i <= 13; i++) {
+                const prev = points[i-1];
+                const curr = points[i];
+                const next = points[i+1];
+                const angle = calcAngle(prev, curr, next);
+                smoothness += Math.abs(angle - 180);
+            }
+            smoothness /= 11;
+            const smoothScore = 10 - smoothness / 15;
+
+            const score = jawScore * 0.6 + smoothScore * 0.4;
+            return clamp(score, 0, 10);
+        }
+
+        // 6. 气质氛围感（综合修正项）
+        function calcVibeScore(sym, eye, prop) {
+            // 基础分由前三项决定
+            const base = (sym + eye + prop) / 3;
+            // 精致度修正：眉眼+比例越好，氛围感加成越高
+            const bonus = (eye - 5) * 0.1 + (prop - 5) * 0.05;
+            return clamp(base + bonus, 0, 10);
+        }
+
+        // ========== 工具函数 ==========
+        function clamp(val, min, max) {
+            return Math.max(min, Math.min(max, val));
+        }
+
+        function calcStd(arr) {
+            const mean = arr.reduce((a,b) => a+b, 0) / arr.length;
+            const variance = arr.reduce((sum, val) => sum + (val - mean)**2, 0) / arr.length;
+            return Math.sqrt(variance);
+        }
+
+        function calcAngle(p1, p2, p3) {
+            const v1 = { x: p1.x - p2.x, y: p1.y - p2.y };
+            const v2 = { x: p3.x - p2.x, y: p3.y - p2.y };
+            const dot = v1.x * v2.x + v1.y * v2.y;
+            const mag1 = Math.sqrt(v1.x**2 + v1.y**2);
+            const mag2 = Math.sqrt(v2.x**2 + v2.y**2);
+            const cos = dot / (mag1 * mag2);
+            return Math.acos(clamp(cos, -1, 1)) * 180 / Math.PI;
+        }
+
+        function setSliderValue(id, value) {
+            const slider = document.getElementById(id);
+            const valEl = document.getElementById(id + 'Val');
+            slider.value = value.toFixed(1);
+            valEl.textContent = value.toFixed(1);
+        }
+
+        // ========== 滑块事件与总分计算 ==========
+        sliderIds.forEach(id => {
+            const slider = document.getElementById(id);
+            const valEl = document.getElementById(id + 'Val');
+            
+            slider.addEventListener('input', () => {
+                valEl.textContent = parseFloat(slider.value).toFixed(1);
+                calculateTotal();
+            });
+        });
+
+        function calculateTotal() {
+            let total = 0;
+            const scores = {};
+            
+            sliderIds.forEach(id => {
+                const val = parseFloat(document.getElementById(id).value);
+                scores[id] = val;
+                total += val * weights[id];
+            });
+
+            const finalScore = total.toFixed(1);
+            totalScoreEl.textContent = finalScore;
+            commentEl.textContent = getComment(parseFloat(finalScore));
+            drawRadar(scores);
+        }
+
+        function getComment(score) {
+            if (score >= 9.0) return "✨ 颜值天花板！五官精致度拉满，对称性与比例接近完美，属于人群中万里挑一的顶级颜值。";
+            else if (score >= 8.0) return "🌟 高颜值水平！整体五官舒展耐看，硬件条件优秀，接近公认明星级颜值。";
+            else if (score >= 7.0) return "👍 颜值中上！属于清秀舒服的类型，没有明显硬伤，稍加打理气质会更突出。";
+            else if (score >= 6.0) return "🙂 普通偏上！干净顺眼的路人水平，有一定的提升空间。";
+            else if (score >= 5.0) return "😐 普通路人！五官基础中规中矩，没有突出亮点，可通过造型修饰扬长避短。";
+            else if (score >= 4.0) return "📝 普通偏下！面部存在少量明显短板，可针对性调整改善。";
+            else return "💡 基础较弱：面部比例或状态有较多可提升点，适合通过发型、穿搭全方位改造。";
+        }
+
+        // ========== 雷达图绘制 ==========
+        function drawRadar(scores) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const radius = 100;
+            const sides = 6;
+            const angleStep = (Math.PI * 2) / sides;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 背景网格
+            for (let i = 1; i <= 5; i++) {
+                const r = radius * (i / 5);
+                ctx.beginPath();
+                for (let j = 0; j < sides; j++) {
+                    const angle = j * angleStep - Math.PI / 2;
+                    const x = centerX + r * Math.cos(angle);
+                    const y = centerY + r * Math.sin(angle);
+                    if (j === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // 轴线+标签
+            for (let i = 0; i < sides; i++) {
+                const angle = i * angleStep - Math.PI / 2;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.lineTo(x, y);
+                ctx.strokeStyle = '#e2e8f0';
+                ctx.stroke();
+
+                const labelRadius = radius + 20;
+                const labelX = centerX + labelRadius * Math.cos(angle);
+                const labelY = centerY + labelRadius * Math.sin(angle);
+                ctx.fillStyle = '#64748b';
+                ctx.font = '12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(dimensionNames[i], labelX, labelY);
+            }
+
+            // 数据区域
+            ctx.beginPath();
+            sliderIds.forEach((id, index) => {
+                const score = scores[id];
+                const angle = index * angleStep - Math.PI / 2;
+                const r = radius * (score / 10);
+                const x = centerX + r * Math.cos(angle);
+                const y = centerY + r * Math.sin(angle);
+                if (index === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.closePath();
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
+            ctx.fill();
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 数据点
+            sliderIds.forEach((id, index) => {
+                const score = scores[id];
+                const angle = index * angleStep - Math.PI / 2;
+                const r = radius * (score / 10);
+                const x = centerX + r * Math.cos(angle);
+                const y = centerY + r * Math.sin(angle);
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, Math.PI * 2);
+                ctx.fillStyle = '#3b82f6';
+                ctx.fill();
+            });
+        }
+
+        // 初始化
+        calculateTotal();
+    </script>
+</body>
+</html>
